@@ -2,6 +2,6 @@
 #include<math.h>
 void main()
 {
-    int x,i=0;
+    printf("hello world \n" );
     
 }

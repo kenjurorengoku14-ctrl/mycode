@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PulseDash – Vitals & CO Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg-base:#f4f6fb;--bg-surface:#fff;--bg-card:rgba(255,255,255,.85);--border-color:rgba(0,0,0,.08);--text-primary:#0f172a;--text-secondary:#475569;--primary:#6366f1;--primary-glow:rgba(99,102,241,.35);--success:#10b981;--warn:#f59e0b;--danger:#ef4444;--glass-backdrop:blur(16px) saturate(180%)}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg-base:#090d16;--bg-surface:#111726;--bg-card:rgba(17,23,38,.75);--border-color:rgba(255,255,255,.08);--text-primary:#f3f4f6;--text-secondary:#9ca3af}}
+:root[data-theme="dark"]{--bg-base:#090d16;--bg-surface:#111726;--bg-card:rgba(17,23,38,.75);--border-color:rgba(255,255,255,.08);--text-primary:#f3f4f6;--text-secondary:#9ca3af}
+*{box-sizing:border-box;margin:0}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg-base);color:var(--text-primary);min-height:100vh;background-image:radial-gradient(60rem 30rem at 80% -10%,var(--primary-glow),transparent)}
+.top-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 1.5rem;border-bottom:1px solid var(--border-color);background:var(--bg-card);backdrop-filter:var(--glass-backdrop);position:sticky;top:0;z-index:5}
+.brand{font-weight:800;font-size:1.15rem;display:flex;align-items:center;gap:.5rem}
+.brand svg{color:var(--danger)}
+.search{flex:1;max-width:380px}
+input{width:100%;padding:.55rem .9rem;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-surface);color:var(--text-primary);font:inherit;font-size:.85rem}
+.header-right{display:flex;gap:.6rem}
+.btn{border:0;border-radius:10px;padding:.55rem 1rem;font:inherit;font-weight:600;font-size:.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;color:var(--text-primary);background:var(--bg-surface);border:1px solid var(--border-color)}
+.btn-primary{background:var(--primary);color:#fff;border-color:transparent}
+.btn-primary:hover{box-shadow:0 0 18px var(--primary-glow)}
+.content{max-width:1200px;margin:0 auto;padding:1.5rem}
+h1{font-size:1.6rem;font-weight:800}
+.sub{color:var(--text-secondary);font-size:.9rem;margin:.25rem 0 1.5rem}
+.node-line{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1.25rem;font-size:.78rem;color:var(--text-secondary)}
+.chip{padding:.3rem .7rem;border-radius:99px;border:1px solid var(--border-color);background:var(--bg-card)}
+.metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:1.5rem}
+.dashboard-card,.metric-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:18px;backdrop-filter:var(--glass-backdrop)}
+.metric-card{padding:1.25rem;position:relative;overflow:hidden}
+.metric-title{color:var(--text-secondary);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.metric-number{font-size:2.3rem;font-weight:800;margin:.3rem 0}
+.metric-number small{font-size:1rem;color:var(--text-secondary);font-weight:600;margin-left:.25rem}
+.metric-status{font-size:.78rem;font-weight:700}
+.ok{color:var(--success)}.caution{color:var(--warn)}.danger{color:var(--danger)}
+.spark{width:100%;height:36px;margin-top:.6rem}
+.live-pill{position:absolute;top:1.1rem;right:1.1rem;font-size:.7rem;font-weight:700;display:flex;align-items:center;gap:.35rem;color:var(--success)}
+.live-dot{width:8px;height:8px;border-radius:50%;background:currentColor;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.25;transform:scale(1.6)}}
+.co-card.caution{box-shadow:0 0 0 1px var(--warn),0 0 24px rgba(245,158,11,.25)}
+.co-card.danger{box-shadow:0 0 0 1px var(--danger),0 0 28px rgba(239,68,68,.4)}
+.grid-2-cols{display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;margin-bottom:1.5rem}
+.card-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1.1rem 1.25rem;border-bottom:1px solid var(--border-color)}
+.card-header h3{font-size:1rem}
+.card-body{padding:1.25rem}
+.tabs{display:flex;gap:.25rem}
+.tab{border:0;background:none;color:var(--text-secondary);padding:.35rem .7rem;border-radius:8px;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer}
+.tab.active{background:var(--primary);color:#fff}
+.chart-wrapper{position:relative;height:280px}
+.doughnut-container{position:relative;height:190px}
+.legend{margin-top:1rem;display:grid;gap:.4rem;font-size:.82rem}
+.legend div{display:flex;justify-content:space-between}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:.5rem}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:640px}
+th{text-align:left;color:var(--text-secondary);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;padding:.8rem 1.25rem}
+td{padding:.8rem 1.25rem;border-top:1px solid var(--border-color)}
+.badge{padding:.2rem .6rem;border-radius:99px;font-size:.72rem;font-weight:700;background:rgba(16,185,129,.15);color:var(--success)}
+.badge.caution{background:rgba(245,158,11,.15);color:var(--warn)}
+.badge.danger{background:rgba(239,68,68,.15);color:var(--danger)}
+.actions{display:flex;gap:.5rem;align-items:center}
+.actions input{width:180px}
+.toast{position:fixed;right:1.25rem;bottom:1.25rem;background:var(--danger);color:#fff;padding:.8rem 1.1rem;border-radius:12px;font-weight:600;font-size:.85rem;box-shadow:0 8px 30px rgba(0,0,0,.35);transform:translateY(140%);transition:transform .3s;max-width:320px;z-index:9}
+.toast.show{transform:none}
+.note{color:var(--text-secondary);font-size:.72rem;text-align:center;padding:1rem}
+@media(max-width:860px){.metrics-grid,.grid-2-cols{grid-template-columns:1fr}.search{display:none}}
+</style>
+</head>
+<body>
+<header class="top-header">
+  <div class="brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21C5 16.500 2 12 2 8.500 2 6 4 4 6.500 4c2 0 3.700 1 5.500 3 1.800-2 3.500-3 5.500-3C20 4 22 6 22 8.500 22 12 19 16.500 12 21z"/></svg>PulseDash</div>
+  <div class="search"><input id="globalSearch" placeholder="Search readings, nodes… (press /)"></div>
+  <div class="header-right">
+    <button class="btn" id="themeToggle" title="Toggle theme">◐ Theme</button>
+    <button class="btn btn-primary" id="exportBtn">⬇ Export CSV</button>
+  </div>
+</header>
+<main class="content">
+  <h1>Vitals & Air Safety Dashboard</h1>
+  <p class="sub">Live heart rate, body temperature and carbon monoxide from LoRa sensor nodes.</p>
+  <div class="node-line">
+    <span class="chip">Node: <b id="nodeName">LORA_NODE_01</b></span>
+    <span class="chip">Signal: <b id="rssiVal">-48 dBm</b></span>
+    <span class="chip">Last packet: <b id="lastPacket">—</b></span>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <span class="metric-title">Heart Rate</span>
+      <div class="metric-number"><span id="hrVal">78</span><small>bpm</small></div>
+      <span class="metric-status ok" id="hrStatus">Normal</span>
+      <svg class="spark" id="sparkHr" viewBox="0 0 100 36" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="metric-card">
+      <span class="metric-title">Temperature</span>
+      <div class="metric-number"><span id="tempVal">36.8</span><small>°C</small></div>
+      <span class="metric-status ok" id="tempStatus">Normal</span>
+      <svg class="spark" id="sparkTemp" viewBox="0 0 100 36" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="metric-card co-card" id="coCard">
+      <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+      <span class="metric-title">Carbon Monoxide</span>
+      <div class="metric-number"><span id="coVal">4.2</span><small>ppm</small></div>
+      <span class="metric-status ok" id="coStatus">Safe</span>
+      <svg class="spark" id="sparkCo" viewBox="0 0 100 36" preserveAspectRatio="none"></svg>
+    </div>
+  </div>
+
+  <div class="grid-2-cols">
+    <div class="dashboard-card">
+      <div class="card-header"><h3>Heart Rate vs Temperature</h3>
+        <div class="tabs" id="rangeTabs"><button class="tab active" data-r="hour">Last hour</button><button class="tab" data-r="today">Today</button><button class="tab" data-r="week">7 days</button></div>
+      </div>
+      <div class="card-body"><div class="chart-wrapper"><canvas id="mainChart"></canvas></div></div>
+    </div>
+    <div class="dashboard-card">
+      <div class="card-header"><h3>Heart-Rate Zones</h3></div>
+      <div class="card-body"><div class="doughnut-container"><canvas id="zoneChart"></canvas></div><div class="legend" id="zoneLegend"></div></div>
+    </div>
+  </div>
+
+  <div class="dashboard-card">
+    <div class="card-header"><h3>Sensor Reading Log</h3>
+      <div class="actions"><input id="tableFilter" placeholder="Filter log…"><button class="btn btn-primary" id="logBtn">+ Log reading</button></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Node / Signal</th><th>HR</th><th>Temp</th><th>CO</th><th>Status</th><th>Time</th></tr></thead>
+      <tbody id="logBody"></tbody>
+    </table></div>
+  </div>
+  <p class="note">Demo interface with simulated data. Not a certified medical or life-safety device — never rely on it for CO alarm protection.</p>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>Math.random()*(b-a)+a;
+const N=30;
+
+/* ---------- theme ---------- */
+const root=document.documentElement;
+try{const t=localStorage.getItem('pd-theme');if(t)root.dataset.theme=t}catch(e){}
+$('themeToggle').onclick=()=>{
+  const dark=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
+  root.dataset.theme=dark?'light':'dark';
+  try{localStorage.setItem('pd-theme',root.dataset.theme)}catch(e){}
+  setTimeout(recolor,30);
+};
+
+/* ---------- state ---------- */
+const nodes=['LORA_NODE_01','LORA_NODE_02','LORA_NODE_03'];
+const state={hr:[],temp:[],co:[],log:[],zones:[40,30,22,8],alerted:false,range:'hour'};
+
+/* ---------- status helpers ---------- */
+const hrS=v=>v<50||v>120?['danger','Abnormal']:v>100?['caution','Elevated']:['ok','Normal'];
+const tS=v=>v>=38.5||v<35?['danger','Abnormal']:v>=37.6?['caution','Elevated']:['ok','Normal'];
+const coS=v=>v>=35?['danger','Danger']:v>=9?['caution','Caution']:['ok','Safe'];
+const worst=(...s)=>s.some(x=>x[0]==='danger')?['danger','Alert']:s.some(x=>x[0]==='caution')?['caution','Watch']:['ok','OK'];
+function setStatus(el,[c,t]){el.className='metric-status '+c;el.textContent=t}
+
+/* ---------- sparklines ---------- */
+function spark(id,arr,color){
+  const a=arr.slice(-N),min=Math.min(...a),max=Math.max(...a),r=(max-min)||1;
+  const pts=a.map((v,i)=>`${(i/(N-1))*100},${34-((v-min)/r)*30}`).join(' ');
+  $(id).innerHTML=`<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+}
+
+/* ---------- charts ---------- */
+const css=n=>getComputedStyle(root).getPropertyValue(n).trim();
+const labelsFor=r=>r==='hour'?Array.from({length:12},(_,i)=>`-${(11-i)*5}m`):r==='today'?Array.from({length:12},(_,i)=>`${i*2}:00`):['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const seriesFor=r=>{const n=labelsFor(r).length;return{hr:Array.from({length:n},()=>Math.round(rnd(66,96))),t:Array.from({length:n},()=>+rnd(36.4,37.2).toFixed(1))}};
+let main,zone;
+function buildCharts(){
+  const s=seriesFor(state.range);
+  main=new Chart($('mainChart'),{type:'line',data:{labels:labelsFor(state.range),datasets:[
+    {label:'Heart rate (bpm)',data:s.hr,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.12)',fill:true,tension:.4,yAxisID:'y',pointRadius:0},
+    {label:'Temp (°C)',data:s.t,borderColor:'#6366f1',tension:.4,yAxisID:'y1',pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{y:{position:'left',min:50,max:120},y1:{position:'right',min:35,max:39,grid:{drawOnChartArea:false}}},plugins:{legend:{position:'bottom'}}}});
+  zone=new Chart($('zoneChart'),{type:'doughnut',data:{labels:['Resting','Fat burn','Cardio','Peak'],datasets:[{data:state.zones,backgroundColor:['#10b981','#6366f1','#f59e0b','#ef4444'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false}}}});
+  recolor();drawLegend();
+}
+function recolor(){
+  const c=css('--text-secondary'),g=css('--border-color');
+  Chart.defaults.color=c;Chart.defaults.font.family="'Plus Jakarta Sans',sans-serif";
+  if(!main)return;
+  Object.values(main.options.scales).forEach(s=>{s.ticks={color:c};if(s.grid&&s.grid.drawOnChartArea===false)return;s.grid={color:g}});
+  main.options.plugins.legend.labels={color:c};main.update();
+}
+function drawLegend(){
+  const cols=['#10b981','#6366f1','#f59e0b','#ef4444'],names=['Resting','Fat burn','Cardio','Peak'],tot=state.zones.reduce((a,b)=>a+b,0);
+  $('zoneLegend').innerHTML=names.map((n,i)=>`<div><span><i style="background:${cols[i]}"></i>${n}</span><b>${Math.round(state.zones[i]/tot*100)}%</b></div>`).join('');
+}
+$('rangeTabs').onclick=e=>{
+  const b=e.target.closest('.tab');if(!b)return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));b.classList.add('active');
+  state.range=b.dataset.r;const s=seriesFor(state.range);
+  main.data.labels=labelsFor(state.range);main.data.datasets[0].data=s.hr;main.data.datasets[1].data=s.t;main.update();
+};
+
+/* ---------- telemetry ingestion ---------- */
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),4500)}
+function ingest(p){
+  const hr=Math.round(p.hr),temp=+(+p.temp).toFixed(1),co=+(+p.co).toFixed(1);
+  state.hr.push(hr);state.temp.push(temp);state.co.push(co);
+  ['hr','temp','co'].forEach(k=>{if(state[k].length>N)state[k].shift()});
+  $('hrVal').textContent=hr;$('tempVal').textContent=temp.toFixed(1);$('coVal').textContent=co.toFixed(1);
+  const h=hrS(hr),t=tS(temp),c=coS(co);
+  setStatus($('hrStatus'),h);setStatus($('tempStatus'),t);setStatus($('coStatus'),c);
+  $('coCard').className='metric-card co-card '+(c[0]==='ok'?'':c[0]);
+  $('nodeName').textContent=p.node;$('rssiVal').textContent=p.rssi+' dBm';$('lastPacket').textContent=new Date().toLocaleTimeString();
+  spark('sparkHr',state.hr,'#ef4444');spark('sparkTemp',state.temp,'#6366f1');spark('sparkCo',state.co,c[0]==='danger'?'#ef4444':c[0]==='caution'?'#f59e0b':'#10b981');
+  const zi=hr<60?0:hr<100?1:hr<140?2:3;state.zones[zi]+=1;zone.data.datasets[0].data=state.zones;zone.update('none');drawLegend();
+  if(c[0]==='danger'&&!state.alerted){state.alerted=true;toast(`⚠ High CO: ${co} ppm on ${p.node}. Ventilate and leave the area.`)}
+  if(c[0]!=='danger')state.alerted=false;
+  state.log.unshift({node:p.node,rssi:p.rssi,hr,temp,co,status:worst(h,t,c),time:new Date().toLocaleTimeString()});
+  if(state.log.length>40)state.log.pop();
+  renderLog();
+}
+function renderLog(){
+  const q=$('tableFilter').value.toLowerCase(),g=$('globalSearch').value.toLowerCase();
+  $('logBody').innerHTML=state.log.filter(r=>{const s=JSON.stringify(r).toLowerCase();return s.includes(q)&&s.includes(g)}).slice(0,12).map(r=>
+    `<tr><td><b>${r.node}</b><br><span style="color:var(--text-secondary);font-size:.72rem">${r.rssi} dBm</span></td><td>${r.hr} bpm</td><td>${r.temp.toFixed(1)} °C</td><td>${r.co.toFixed(1)} ppm</td><td><span class="badge ${r.status[0]==='ok'?'':r.status[0]}">${r.status[1]}</span></td><td>${r.time}</td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-secondary)">No matching readings</td></tr>';
+}
+$('tableFilter').oninput=renderLog;$('globalSearch').oninput=renderLog;
+addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('globalSearch').focus()}});
+
+/* simulated LoRa feed: same shape as {"hr":78,"temp":36.8,"co":4.2,"node":"LORA_NODE_01","rssi":-48} */
+let cur={hr:78,temp:36.8,co:4.2,node:'LORA_NODE_01',rssi:-48};
+function nextPacket(){
+  cur.hr=Math.min(130,Math.max(55,cur.hr+rnd(-4,4)));
+  cur.temp=Math.min(38.6,Math.max(35.8,cur.temp+rnd(-.12,.12)));
+  cur.co=Math.max(0,cur.co+rnd(-.8,.9));
+  if(Math.random()<.04)cur.co+=rnd(25,40);
+  else if(cur.co>12)cur.co*=.8;
+  cur.rssi=Math.round(-48+rnd(-12,4));
+  return{...cur};
+}
+$('logBtn').onclick=()=>{const p=nextPacket();p.node=nodes[Math.floor(Math.random()*nodes.length)];ingest(p)};
+
+/* ---------- export ---------- */
+$('exportBtn').onclick=async()=>{
+  const rows=['node,rssi_dbm,hr_bpm,temp_c,co_ppm,status,time',...state.log.map(r=>[r.node,r.rssi,r.hr,r.temp,r.co,r.status[1],r.time].join(','))].join('\n');
+  const fn=`pulsedash_${new Date().toISOString().slice(0,10)}.csv`;
+  try{
+    const d=window.claude&&await window.claude.use('downloads');
+    if(d){await d.save({filename:fn,data:rows});return}
+  }catch(e){}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows],{type:'text/csv'}));a.download=fn;document.body.appendChild(a);a.click();a.remove();
+};
+
+/* ---------- boot ---------- */
+buildCharts();
+ingest({hr:78,temp:36.8,co:4.2,node:'LORA_NODE_01',rssi:-48});
+for(let i=0;i<8;i++)ingest(nextPacket());
+setInterval(()=>ingest(nextPacket()),3000);
+</script>
+</body>
+</html>
